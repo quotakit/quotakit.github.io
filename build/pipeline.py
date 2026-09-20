@@ -143,6 +143,11 @@ def main():
     env = dict(os.environ, QK_DIST=str(SITE), QK_IMG_SRC=str(IMAGES / "listing"), QK_NO_ARTIFACT="1")
     sh([sys.executable, str(HERE / "build_site.py")], env=env)
     (SITE / ".nojekyll").write_text("\n")
+    static = HERE / "static"
+    if static.is_dir():
+        for p in static.iterdir():
+            if p.is_file():
+                shutil.copy2(p, SITE / p.name)
     print("\nOUT:")
     for p in sorted(OUT.rglob("*")):
         if p.is_file():
