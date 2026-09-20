@@ -1,0 +1,61 @@
+name: build
+on:
+  push:
+    branches: [main]
+    paths: ["build/**", ".github/workflows/build.yml"]
+  workflow_dispatch:
+    inputs:
+      cleanup:
+        description: "Delete the relay branch instead of building"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: build
+  cancel-in-progress: false
+jobs:
+  build:
+    if: ${{ !inputs.cleanup }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install openpyxl==3.1.5 pillow pandas
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libreoffice-calc poppler-utils fonts-dejavu-core fonts-liberation > /dev/null
+      - run: python build/pipeline.py
+        env:
+          QK_OUT: ${{ github.workspace }}/out
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out/site
+      - id: deploy
+        uses: actions/deploy-pages@v4
+      - name: Push relay branch (packages, listing images, covers)
+        run: |
+          mkdir relay
+          cp -r out/packages relay/packages
+          cp -r out/images/listing relay/listing
+          cp -r out/images/covers relay/covers
+          cd relay
+          git init -q -b relay
+          git add -A
+          git -c user.name=quotakit-bot -c user.email=quotakit-bot@users.noreply.github.com commit -qm "relay $GITHUB_RUN_ID"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" relay
+  cleanup:
+    if: ${{ inputs.cleanup }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: git push "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" --delete relay
