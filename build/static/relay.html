@@ -1,0 +1,28 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>QuotaKit asset relay</title>
+<meta name="robots" content="noindex">
+<script>
+// Fetches files from the relay branch and posts them to the embedding page.
+// Usage: relay.html?f=covers/a.jpg,packages/b.zip   (paths relative to the relay branch)
+(async () => {
+  const RAW = 'https://raw.githubusercontent.com/quotakit/quotakit.github.io/relay/';
+  const q = new URLSearchParams(location.search);
+  const files = (q.get('f') || '').split(',').map(s => s.trim()).filter(Boolean);
+  const target = window.parent !== window ? window.parent : window.opener;
+  if (!target) return;
+  const mime = n => /\.zip$/i.test(n) ? 'application/zip' : /\.png$/i.test(n) ? 'image/png' : /\.jpe?g$/i.test(n) ? 'image/jpeg' : 'application/octet-stream';
+  let count = 0;
+  for (const p of files) {
+    try {
+      const r = await fetch(RAW + p, { cache: 'no-store' });
+      if (!r.ok) { target.postMessage({ error: p + ' ' + r.status }, '*'); continue; }
+      const buf = await r.arrayBuffer();
+      const name = p.split('/').pop();
+      target.postMessage({ name, type: mime(name), buf }, '*', [buf]);
+      count++;
+    } catch (e) { target.postMessage({ error: p + ' ' + e.message }, '*'); }
+  }
+  target.postMessage({ done: true, count }, '*');
+})();
+</script>
