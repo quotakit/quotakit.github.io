@@ -9,6 +9,10 @@ on:
         description: "Delete the relay branch instead of building"
         type: boolean
         default: false
+      with_packages:
+        description: "Also put the paid product ZIPs on the relay branch (only while uploading to Gumroad; run cleanup right after)"
+        type: boolean
+        default: false
 permissions:
   contents: write
   pages: write
@@ -43,12 +47,12 @@ jobs:
           path: out/site
       - id: deploy
         uses: actions/deploy-pages@v4
-      - name: Push relay branch (packages, listing images, covers)
+      - name: Push relay branch (listing images and covers; paid ZIPs only on request)
         run: |
           mkdir relay
-          cp -r out/packages relay/packages
           cp -r out/images/listing relay/listing
           cp -r out/images/covers relay/covers
+          if [ "${{ inputs.with_packages }}" = "true" ]; then cp -r out/packages relay/packages; fi
           cd relay
           git init -q -b relay
           git add -A
